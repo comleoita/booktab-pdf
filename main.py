@@ -71,7 +71,7 @@ else:
   time.sleep(2)
   print("Download dei capitoli in corso...")
   for unittitle in array_unita:
-    if '@plusbook' not in unittitle or unittitle['@plusbook'] == '10': #plusbook deve essere nullo o avere valore 10, diverso comunque da -1
+    if '@plusbook' not in unittitle or unittitle['@plusbook'] != '-1': #plusbook deve essere nullo o avere valore 10, diverso comunque da -1
       id_unit = unittitle['@btbid']
       config_xml = requests.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/config.xml', headers = {'Cookie':cookie})
       config_json = xmltodict.parse(config_xml.text)

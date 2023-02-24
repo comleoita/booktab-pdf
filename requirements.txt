@@ -1,0 +1,4 @@
+requests
+xmltodict
+json
+PyPDF2

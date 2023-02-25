@@ -3,6 +3,7 @@ import time
 import requests
 import xmltodict, json
 import PyPDF2
+import getpass
 from io import BytesIO, SEEK_SET, SEEK_END 
 
 class ResponseStream(object):
@@ -50,43 +51,68 @@ class ResponseStream(object):
         else:
             self._bytes.seek(position, whence)
 
+userid = input("Inserisci il tuo User: ")
+passw = getpass.getpass()
 
-isbn = input("Inserisci l'isbn del tuo libro: ")
-cookie = input("Inserisci i cookie: ")
-merger = PyPDF2.PdfFileWriter()
-#estrapolo volume.xml del libro
-volumexml = requests.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/volume.xml', headers = {'Cookie':cookie})
-if (volumexml.status_code == 302):
-  print('Cookie errati, prova di nuovo!')
-  sys.exit()
-elif (volumexml.status_code != 200):
-  print('ISBN errato o sito non più raggiungibile, prova di nuovo!')
-  sys.exit()
+
+session = requests.session()
+login_data = {"username":f"{userid}","password":f"{passw}"}
+login = session.post("https://idp.zanichelli.it/v4/login/", json=login_data)
+if 'token' in login.text:
+  print("Login effettuato correttamente!")
+  
+
+  merger = PyPDF2.PdfFileWriter()
+  
+  mess = session.get("https://web-booktab.zanichelli.it/api/v5/messages")
+  usr = session.post("https://web-booktab.zanichelli.it/api/v1/sessions_web")
+  elenco_books = session.get("https://web-booktab.zanichelli.it/api/v1/books_web").json()
+  
+  for isbn in elenco_books['books']:
+     isbn = isbn['isbn']
+     volume_xml = session.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/volume.xml')
+     json_libro = xmltodict.parse(volume_xml.text)
+     title = json_libro['config']['volume']['settings']['volumetitle']
+     print(isbn + ') ' + title)
+  
+  isbn = input("Inserisci l'ISBN del libro: ")
+  
+  volumexml = session.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/volume.xml')
+  if (volumexml.status_code == 302):
+    print('Cookie errati, prova di nuovo!')
+    sys.exit()
+  elif (volumexml.status_code != 200):
+    print('ISBN errato o sito non più raggiungibile, prova di nuovo!')
+    sys.exit()
+  else:
+    json = xmltodict.parse(volumexml.text)
+    title = json['config']['volume']['settings']['volumetitle'] #titolo del libro
+    titolo = title + ".pdf" #titolo da salvare in pdf
+    array_unita = json['config']['volume']['units']['unit']
+    print("\nLibro: " + title + "\n")
+    time.sleep(2)
+    print("Download dei capitoli in corso...")
+    for unittitle in array_unita:
+      if '@plusbook' not in unittitle or unittitle['@plusbook'] != '-1': #plusbook deve essere nullo o avere valore 10, diverso comunque da -1
+        id_unit = unittitle['@btbid']
+        config_xml = session.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/config.xml')
+        config_json = xmltodict.parse(config_xml.text)
+        if 'content' in config_json['unit']:
+          content2 = config_json['unit']['content'] + ".pdf"
+          entry = config_json['unit']['filesMap']['entry']
+          for entry in entry:
+              if entry['@key'] == content2:
+                richiesta = session.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/' + entry['#text'] + ".pdf")
+                pdf = PyPDF2.PdfFileReader(ResponseStream(richiesta.iter_content(64)))
+                print('Download completato di: ' + content2)
+                for page in range(pdf.getNumPages()):
+                   merger.addPage(pdf.getPage(page))
+    with open(titolo, 'wb') as g:
+      print('Merging dei capitoli in corso...')
+      merger.write(g)
+  print("Concluso! Trovi il pdf nella cartella dello script")
+  exit()
+
 else:
-  json = xmltodict.parse(volumexml.text)
-  title = json['config']['volume']['settings']['volumetitle'] #titolo del libro
-  titolo = title + ".pdf" #titolo da salvare in pdf
-  array_unita = json['config']['volume']['units']['unit']
-  print("\nLibro: " + title + "\n")
-  time.sleep(2)
-  print("Download dei capitoli in corso...")
-  for unittitle in array_unita:
-    if '@plusbook' not in unittitle or unittitle['@plusbook'] != '-1': #plusbook deve essere nullo o avere valore 10, diverso comunque da -1
-      id_unit = unittitle['@btbid']
-      config_xml = requests.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/config.xml', headers = {'Cookie':cookie})
-      config_json = xmltodict.parse(config_xml.text)
-      if 'content' in config_json['unit']:
-        content2 = config_json['unit']['content'] + ".pdf"
-        entry = config_json['unit']['filesMap']['entry']
-        for entry in entry:
-            if entry['@key'] == content2:
-              richiesta = requests.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/' + entry['#text'] + ".pdf", headers = {'Cookie':cookie})
-              pdf = PyPDF2.PdfFileReader(ResponseStream(richiesta.iter_content(64)))
-              print('Download completato di: ' + content2)
-              for page in range(pdf.getNumPages()):
-                 merger.addPage(pdf.getPage(page))
-  with open(titolo, 'wb') as g:
-    print('Merging dei capitoli in corso...')
-    merger.write(g)
-print("Concluso! Trovi il pdf nella cartella dello script")
-exit()
+  print("Errore nel LOGIN")
+  exit()

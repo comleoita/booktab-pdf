@@ -10,6 +10,6 @@ pip install -r requirements.txt
 ```
 4. Esegui lo script con 
 ```bash
-python3 main.py"
+python3 main.py
 ```
 5. Segui le istruzioni a schermo

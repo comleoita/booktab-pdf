@@ -13,3 +13,7 @@ pip install -r requirements.txt
 python3 main.py
 ```
 5. Segui le istruzioni a schermo
+
+
+Attenzione!
+Sei responsabile ti quello che scarichi e condividi, ricorda che è una violazione del copyright condivedere libri in pdf

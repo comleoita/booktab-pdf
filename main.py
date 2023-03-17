@@ -62,7 +62,7 @@ if 'token' in login.text:
   print("Login effettuato correttamente!")
   
 
-  merger = PyPDF2.PdfFileWriter()
+  merger = PyPDF2.PdfWriter()
   
   mess = session.get("https://web-booktab.zanichelli.it/api/v5/messages")
   usr = session.post("https://web-booktab.zanichelli.it/api/v1/sessions_web")
@@ -103,10 +103,10 @@ if 'token' in login.text:
           for entry in entry:
               if entry['@key'] == content2:
                 richiesta = session.get('https://web-booktab.zanichelli.it/api/v1/resources_web/' + isbn + '/' + id_unit + '/' + entry['#text'] + ".pdf")
-                pdf = PyPDF2.PdfFileReader(ResponseStream(richiesta.iter_content(64)))
+                pdf = PyPDF2.PdfReader(ResponseStream(richiesta.iter_content(64)))
                 print('Download completato di: ' + content2)
-                for page in range(pdf.getNumPages()):
-                   merger.addPage(pdf.getPage(page))
+                for page in range(len(pdf.pages)):
+                   merger.add_page(pdf.pages[page])
     with open(titolo, 'wb') as g:
       print('Merging dei capitoli in corso...')
       merger.write(g)
